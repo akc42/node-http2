@@ -3,6 +3,7 @@ var util = require('./util');
 var fs = require('fs');
 var path = require('path');
 var url = require('url');
+var net = require('net');
 
 var http2 = require('../lib/http');
 var https = require('https');
@@ -36,6 +37,36 @@ describe('http.js', function() {
         expect(function() {
           http2.createServer(util.noop);
         }).to.throw(Error);
+      });
+    });
+    describe('method `listen()`', function () {
+      it('should emit `listening` event', function (done) {
+        var server = http2.createServer(serverOptions);
+
+        server.on('listening', function () {
+          server.close();
+
+          done();
+        })
+
+        server.listen(0);
+      });
+      it('should emit `error` on failure', function (done) {
+        var server = http2.createServer(serverOptions);
+
+        // This TCP server is used to explicitly take a port to make
+        // server.listen() fails.
+        var net = require('net').createServer();
+
+        server.on('error', function () {
+          net.close()
+
+          done();
+        });
+
+        net.listen(0, function () {
+          server.listen(this.address().port);
+        });
       });
     });
     describe('property `timeout`', function() {
@@ -318,6 +349,9 @@ describe('http.js', function() {
           response.removeHeader('nonexistent');
           expect(response.getHeader('nonexistent')).to.equal(undefined);
 
+          // A set-cookie header which should always be an array
+          response.setHeader('set-cookie', 'foo');
+
           // Don't send date
           response.sendDate = false;
 
@@ -344,6 +378,8 @@ describe('http.js', function() {
           request.on('response', function(response) {
             expect(response.headers[headerName]).to.equal(headerValue);
             expect(response.headers['nonexistent']).to.equal(undefined);
+            expect(response.headers['set-cookie']).to.an.instanceof(Array)
+            expect(response.headers['set-cookie']).to.deep.equal(['foo'])
             expect(response.headers['date']).to.equal(undefined);
             response.on('data', function(data) {
               expect(data.toString()).to.equal(message);
@@ -613,6 +649,26 @@ describe('http.js', function() {
           });
         });
       });
+      it('should expose net.Socket as .socket and .connection', function(done) {
+        var server = http2.createServer(serverOptions, function(request, response) {
+          expect(request.socket).to.equal(request.connection);
+          expect(request.socket).to.be.instanceof(net.Socket);
+          response.write('Pong');
+          response.end();
+          done();
+        });
+
+        server.listen(1248, 'localhost', function() {
+          var request = https.request({
+            host: 'localhost',
+            port: 1248,
+            path: '/',
+            ca: serverOptions.cert
+          });
+          request.write('Ping');
+          request.end();
+        });
+      });
     });
     describe('request and response with trailers', function() {
       it('should work as expected', function(done) {
@@ -644,6 +700,52 @@ describe('http.js', function() {
             });
           });
         });
+      });
+    });
+    describe('Handle socket error', function () {
+      it('HTTPS on Connection Refused error', function (done) {
+        var path = '/x';
+        var request = http2.request('https://127.0.0.1:6666' + path);
+
+        request.on('error', function (err) {
+          expect(err.errno).to.equal('ECONNREFUSED');
+          done();
+        });
+
+        request.on('response', function (response) {
+          server._server._handle.destroy();
+
+          response.on('data', util.noop);
+
+          response.once('end', function () {
+            done(new Error('Request should have failed'));
+          });
+        });
+
+        request.end();
+
+      });
+      it('HTTP on Connection Refused error', function (done) {
+        var path = '/x';
+
+        var request = http2.raw.request('http://127.0.0.1:6666' + path);
+
+        request.on('error', function (err) {
+          expect(err.errno).to.equal('ECONNREFUSED');
+          done();
+        });
+
+        request.on('response', function (response) {
+          server._server._handle.destroy();
+
+          response.on('data', util.noop);
+
+          response.once('end', function () {
+            done(new Error('Request should have failed'));
+          });
+        });
+
+        request.end();
       });
     });
     describe('server push', function() {
