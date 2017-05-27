@@ -1,6 +1,6 @@
 {
   "name": "http2",
-  "version": "3.3.6",
+  "version": "3.3.7",
   "description": "An HTTP/2 client and server implementation",
   "main": "lib/index.js",
   "engines" : {
@@ -19,11 +19,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/molnarg/node-http2.git"
+    "url": "https://github.com/akc42/node-http2.git"
   },
-  "homepage": "https://github.com/molnarg/node-http2",
+  "homepage": "https://github.com/akc42/node-http2",
   "bugs": {
-    "url": "https://github.com/molnarg/node-http2/issues"
+    "url": "https://github.com/akc42/node-http2/issues"
   },
   "keywords": [
     "http",
@@ -39,7 +39,8 @@
     "Igor Novikov",
     "James Willcox",
     "David Björklund",
-    "Patrick McManus"
+    "Patrick McManus",
+    "Alan Chandler"
   ],
   "license": "MIT",
   "readmeFilename": "README.md"
